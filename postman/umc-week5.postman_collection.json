@@ -1,0 +1,29 @@
+{
+  "info": {
+    "name": "UMC 5주차 - 영화 평점 필수 API",
+    "description": "백엔드를 실행한 뒤 Send를 누르세요. 새 DB의 수현 회원 번호는 1입니다.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "memberId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "1. 닉네임 중복 확인 - 수현",
+      "request": { "method": "GET", "url": "{{baseUrl}}/members/nickname/%EC%88%98%ED%98%84", "description": "시드 데이터가 있으면 available: false" }
+    },
+    {
+      "name": "2. 이메일 중복 확인 - noco@umc.com",
+      "request": { "method": "GET", "url": "{{baseUrl}}/members/email/noco%40umc.com", "description": "시드 데이터가 있으면 available: false" }
+    },
+    {
+      "name": "3. 회원별 평점 조회",
+      "request": { "method": "GET", "url": "{{baseUrl}}/members/{{memberId}}/ratings", "description": "새 DB의 수현 회원은 영화 155, 550 순으로 응답합니다." }
+    },
+    {
+      "name": "4. 없는 회원 - 404 확인",
+      "request": { "method": "GET", "url": "{{baseUrl}}/members/999/ratings", "description": "999번 회원이 없는 실습 DB에서 HTTP 404" }
+    }
+  ]
+}

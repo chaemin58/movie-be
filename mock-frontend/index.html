@@ -1,0 +1,73 @@
+<!-- mock-frontend/index.html -->
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UMC 5주차 간이 프론트</title>
+  </head>
+  <body>
+    <h1>간이 프론트 : 영화 평점 서비스</h1>
+
+    <h2>1. 닉네임 중복 체크</h2>
+    <label for="nickname">닉네임</label>
+    <input id="nickname" value="수현" />
+    <button onclick="checkNickname()">닉네임 중복 체크</button>
+    <p id="nickname-request"></p>
+    <pre id="nickname-result" aria-live="polite"></pre>
+
+    <h2>2. 이메일 중복 체크</h2>
+    <label for="email">이메일</label>
+    <input id="email" value="noco@umc.com" />
+    <button onclick="checkEmail()">이메일 중복 체크</button>
+    <p id="email-request"></p>
+    <pre id="email-result" aria-live="polite"></pre>
+
+    <h2>3. 유저별 평점 조회</h2>
+    <label for="member-id">회원 번호</label>
+    <input id="member-id" value="1" />
+    <button onclick="getRatings()">평점 조회</button>
+    <p id="ratings-request"></p>
+    <pre id="ratings-result" aria-live="polite"></pre>
+
+    <script>
+      // NestJS 서버 주소입니다. PORT를 바꾸면 이 주소도 바꾸세요.
+      const API_BASE = 'http://localhost:3000';
+
+      // 세 버튼이 공유하는 함수입니다. 실제 서버의 JSON을 그대로 표시합니다.
+      async function callApi(path, key) {
+        const url = API_BASE + path;
+        const request = document.getElementById(key + '-request');
+        const result = document.getElementById(key + '-result');
+        request.innerText = 'GET ' + url;
+        result.innerText = '조회 중...';
+        try {
+          const res = await fetch(url);
+          const data = await res.json();
+          request.innerText += ' → HTTP ' + res.status;
+          // 200뿐 아니라 404 등 서버의 오류 응답도 그대로 보여 줍니다.
+          result.innerText = JSON.stringify(data, null, 2);
+        } catch (error) {
+          result.innerText = '요청 실패: 백엔드 실행 상태와 CORS 설정을 확인하세요.';
+          console.error(error);
+        }
+      }
+
+      function checkNickname() {
+        // 한글 등 특수 문자가 URL에 들어갈 수 있도록 인코딩합니다.
+        const nickname = encodeURIComponent(document.getElementById('nickname').value);
+        return callApi('/members/nickname/' + nickname, 'nickname');
+      }
+
+      function checkEmail() {
+        const email = encodeURIComponent(document.getElementById('email').value);
+        return callApi('/members/email/' + email, 'email');
+      }
+
+      function getRatings() {
+        const memberId = encodeURIComponent(document.getElementById('member-id').value);
+        return callApi('/members/' + memberId + '/ratings', 'ratings');
+      }
+    </script>
+  </body>
+</html>

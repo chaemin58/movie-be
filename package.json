@@ -1,0 +1,36 @@
+{
+  "name": "umc-week5-movie",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "UMC 5주차 필수 과제: 영화 평점 조회 서비스",
+  "engines": { "node": ">=22.20.0" },
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "start:dev": "nest start --watch",
+    "start:no-cors": "node --env-file-if-exists=.env dist/main.js --no-cors",
+    "frontend": "node mock-frontend/server.mjs",
+    "db:init": "node --env-file=.env scripts/init-db.mjs",
+    "test": "npm run build && node --test test/api.test.mjs",
+    "test:mysql": "npm run build && node --env-file=.env --test test/mysql.test.mjs",
+    "report": "node scripts/report.mjs"
+  },
+  "dependencies": {
+    "@nestjs/common": "12.1.1",
+    "@nestjs/config": "12.0.1",
+    "@nestjs/core": "12.1.1",
+    "@nestjs/platform-express": "12.1.1",
+    "@nestjs/typeorm": "12.0.2",
+    "mysql2": "3.24.5",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "typeorm": "1.1.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "12.0.8",
+    "@nestjs/testing": "12.1.1",
+    "@types/node": "24.19.0",
+    "typescript": "6.0.3"
+  }
+}

@@ -1,0 +1,6 @@
+# 설치 결과, 빌드 결과, 비밀번호는 Git에 올리지 않습니다.
+node_modules/
+dist/
+.env
+*.tsbuildinfo
+*.log

@@ -1,0 +1,1309 @@
+# UMC 5주차 — 추가한 전체 코드와 파일별 설명
+
+기준 경로: D:/be/study/movie/
+
+필수 API 3개, MySQL 스키마/시드, CORS, 실제 화면과 검증 코드를 작성했습니다. 선택 미션은 제외했습니다.
+
+아래는 작성한 파일의 전체 내용입니다. 실제 .env는 비밀번호 보호를 위해 제외하고 .env.example로 대체합니다. npm이 생성한 package-lock.json, node_modules, dist와 보고서 자체의 중복 사본은 복제하지 않습니다.
+
+## package.json
+
+경로: D:/be/study/movie/package.json
+
+설명: 패키지 버전과 실행 명령어를 정의합니다.
+
+````json
+{
+  "name": "umc-week5-movie",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "UMC 5주차 필수 과제: 영화 평점 조회 서비스",
+  "engines": { "node": ">=22.20.0" },
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "start:dev": "nest start --watch",
+    "start:no-cors": "node --env-file-if-exists=.env dist/main.js --no-cors",
+    "frontend": "node mock-frontend/server.mjs",
+    "db:init": "node --env-file=.env scripts/init-db.mjs",
+    "test": "npm run build && node --test test/api.test.mjs",
+    "test:mysql": "npm run build && node --env-file=.env --test test/mysql.test.mjs",
+    "report": "node scripts/report.mjs"
+  },
+  "dependencies": {
+    "@nestjs/common": "12.1.1",
+    "@nestjs/config": "12.0.1",
+    "@nestjs/core": "12.1.1",
+    "@nestjs/platform-express": "12.1.1",
+    "@nestjs/typeorm": "12.0.2",
+    "mysql2": "3.24.5",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "typeorm": "1.1.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "12.0.8",
+    "@nestjs/testing": "12.1.1",
+    "@types/node": "24.19.0",
+    "typescript": "6.0.3"
+  }
+}
+````
+
+## .gitignore
+
+경로: D:/be/study/movie/.gitignore
+
+설명: 비밀번호, 설치 결과, 빌드 결과를 Git에서 제외합니다.
+
+````text
+# 설치 결과, 빌드 결과, 비밀번호는 Git에 올리지 않습니다.
+node_modules/
+dist/
+.env
+*.tsbuildinfo
+*.log
+````
+
+## .env.example
+
+경로: D:/be/study/movie/.env.example
+
+설명: DB 접속 설정의 작성 예시입니다. 실제 비밀번호는 .env에만 저장합니다.
+
+````text
+# 이 파일을 .env로 복사하고 본인의 MySQL 접속 정보를 입력하세요.
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=본인_MySQL_비밀번호
+DB_NAME=umc_movie
+PORT=3000
+````
+
+## nest-cli.json
+
+경로: D:/be/study/movie/nest-cli.json
+
+설명: Nest CLI가 읽을 소스 폴더와 빌드 설정입니다.
+
+````json
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src",
+  "compilerOptions": { "deleteOutDir": true }
+}
+````
+
+## tsconfig.json
+
+경로: D:/be/study/movie/tsconfig.json
+
+설명: TypeScript와 ESM, 데코레이터 메타데이터를 설정합니다.
+
+````json
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2023",
+    "rootDir": "src",
+    "outDir": "dist",
+    "strict": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"]
+}
+````
+
+## tsconfig.build.json
+
+경로: D:/be/study/movie/tsconfig.build.json
+
+설명: 빌드에서 테스트와 화면 파일을 제외합니다.
+
+````json
+{
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "dist", "test", "mock-frontend", "scripts"]
+}
+````
+
+## src/main.ts
+
+경로: D:/be/study/movie/src/main.ts
+
+설명: Nest 앱 생성 → CORS 적용 → 3000 포트 실행 순서입니다.
+
+````typescript
+import 'reflect-metadata';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module.js';
+import { configureCors } from './cors.js';
+
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create(AppModule);
+
+  // 기본 실행은 CORS를 켭니다. --no-cors는 워크북의 설정 전/후 비교용입니다.
+  configureCors(app, !process.argv.includes('--no-cors'));
+  app.enableShutdownHooks();
+
+  const port = Number(process.env.PORT ?? 3000);
+  await app.listen(port, 'localhost');
+  console.log(`영화 평점 API: http://localhost:${port}`);
+}
+
+bootstrap().catch((error: unknown) => {
+  console.error('서버를 실행하지 못했습니다.', error);
+  process.exitCode = 1;
+});
+````
+
+## src/cors.ts
+
+경로: D:/be/study/movie/src/cors.ts
+
+설명: localhost:5173 화면이 응답을 읽도록 허용합니다. 설정 전/후 실습을 위해 끌 수 있습니다.
+
+````typescript
+import type { INestApplication } from '@nestjs/common';
+
+export function configureCors(app: INestApplication, enabled = true): void {
+  if (enabled) {
+    // 브라우저가 이 출처의 화면에서 API 응답을 읽을 수 있도록 허용합니다.
+    app.enableCors({
+      origin: 'http://localhost:5173',
+      methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    });
+  }
+}
+````
+
+## src/app.module.ts
+
+경로: D:/be/study/movie/src/app.module.ts
+
+설명: .env를 읽고 MySQL, TypeORM 저장소, 컨트롤러와 서비스를 연결합니다.
+
+````typescript
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Member } from './entity/member.entity.js';
+import { Rating } from './entity/rating.entity.js';
+import { MemberController } from './controller/member.controller.js';
+import { RatingController } from './controller/rating.controller.js';
+import { MemberService } from './service/member.service.js';
+import { RatingService } from './service/rating.service.js';
+
+@Module({
+  imports: [
+    // movie/.env의 값을 읽고 다른 클래스에서도 사용할 수 있게 합니다.
+    ConfigModule.forRoot({ isGlobal: true }),
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'mysql' as const,
+        host: config.getOrThrow<string>('DB_HOST'),
+        port: Number(config.get<string>('DB_PORT', '3306')),
+        username: config.getOrThrow<string>('DB_USER'),
+        password: config.getOrThrow<string>('DB_PASSWORD'),
+        database: config.getOrThrow<string>('DB_NAME'),
+        autoLoadEntities: true,
+        // 테이블은 sql/schema.sql로 만듭니다. 실행 때 자동 변경하지 않습니다.
+        synchronize: false,
+        charset: 'utf8mb4',
+        timezone: 'Z',
+        supportBigNumbers: true,
+        bigNumberStrings: false,
+        retryAttempts: 1,
+      }),
+    }),
+    // 이 등록으로 Repository<Member>, Repository<Rating>을 주입할 수 있습니다.
+    TypeOrmModule.forFeature([Member, Rating]),
+  ],
+  controllers: [MemberController, RatingController],
+  providers: [MemberService, RatingService],
+})
+export class AppModule {}
+````
+
+## src/entity/base-time.entity.ts
+
+경로: D:/be/study/movie/src/entity/base-time.entity.ts
+
+설명: 생성일과 수정일을 공통 부모 클래스로 정의합니다.
+
+````typescript
+import { CreateDateColumn, UpdateDateColumn } from 'typeorm';
+
+// 자체 테이블은 없고 Member와 Rating이 공통 날짜 컬럼을 상속받습니다.
+export abstract class BaseTimeEntity {
+  @CreateDateColumn({ name: 'created_at', type: 'datetime', precision: 0 })
+  createdAt!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime', precision: 0 })
+  updatedAt!: Date;
+}
+````
+
+## src/entity/member.entity.ts
+
+경로: D:/be/study/movie/src/entity/member.entity.ts
+
+설명: member 테이블을 연결합니다. password는 일반 조회에서 제외합니다.
+
+````typescript
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { BaseTimeEntity } from './base-time.entity.js';
+
+//member 테이블과 연결
+@Entity('member')
+export class Member extends BaseTimeEntity {
+  @PrimaryGeneratedColumn({ name: 'member_id', type: 'bigint' })
+  memberId!: number;
+
+  @Column({ type: 'varchar', length: 254, unique: true })
+  email!: string;
+
+  // 이번 주에는 더미 문자열만 사용합니다. 일반 조회에서도 비밀번호를 제외합니다.
+  @Column({ type: 'varchar', length: 60, select: false })
+  password!: string;
+
+  @Column({ type: 'varchar', length: 50, unique: true })
+  nickname!: string;
+}
+````
+
+## src/entity/rating.entity.ts
+
+경로: D:/be/study/movie/src/entity/rating.entity.ts
+
+설명: rating 테이블, 회원 외래키, 회원·영화 복합 UNIQUE를 정의합니다.
+
+````typescript
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
+import { BaseTimeEntity } from './base-time.entity.js';
+import { Member } from './member.entity.js';
+
+@Entity('rating')
+@Unique('uk_rating_member_movie', ['member', 'movieId'])
+export class Rating extends BaseTimeEntity {
+  @PrimaryGeneratedColumn({ name: 'rating_id', type: 'bigint' })
+  ratingId!: number;
+
+  // 여러 평점이 한 회원에 속합니다. member_id가 실제 외래키입니다.
+  @ManyToOne(() => Member, { nullable: false })
+  @JoinColumn({ name: 'member_id' })
+  member!: Member;
+
+  // TMDB의 영화 번호를 저장하는 일반 컬럼입니다. 별도 영화 테이블은 없습니다.
+  @Column({ name: 'movie_id', type: 'bigint' })
+  movieId!: number;
+
+  @Column({ type: 'tinyint' })
+  score!: number;
+
+  @Column({ type: 'text', nullable: true })
+  comment!: string | null;
+}
+````
+
+## src/dto/check-response.dto.ts
+
+경로: D:/be/study/movie/src/dto/check-response.dto.ts
+
+설명: 두 중복 확인 API의 available 응답입니다.
+
+````typescript
+// 닉네임과 이메일 중복 확인이 같은 응답 구조를 공유합니다.
+export class CheckResponseDto {
+  available!: boolean;
+}
+````
+
+## src/dto/rating-response.dto.ts
+
+경로: D:/be/study/movie/src/dto/rating-response.dto.ts
+
+설명: 평점 엔티티에서 명세에 필요한 6개 필드만 선택합니다.
+
+````typescript
+import type { Rating } from '../entity/rating.entity.js';
+
+export class RatingResponseDto {
+  ratingId!: number;
+  movieId!: number;
+  score!: number;
+  comment!: string | null;
+  createdAt!: Date;
+  updatedAt!: Date;
+
+  // DB 객체에서 API에 필요한 필드만 골라 반환합니다.
+  static from(rating: Rating): RatingResponseDto {
+    return {
+      ratingId: Number(rating.ratingId),
+      movieId: Number(rating.movieId),
+      score: rating.score,
+      comment: rating.comment,
+      createdAt: rating.createdAt,
+      updatedAt: rating.updatedAt,
+    };
+  }
+}
+````
+
+## src/controller/member.controller.ts
+
+경로: D:/be/study/movie/src/controller/member.controller.ts
+
+설명: 닉네임과 이메일 경로 변수를 받아 서비스에 전달합니다.
+
+````typescript
+import { Controller, Get, Param } from '@nestjs/common';
+import { MemberService } from '../service/member.service.js';
+import type { CheckResponseDto } from '../dto/check-response.dto.js';
+
+@Controller('members')
+export class MemberController {
+  constructor(private readonly memberService: MemberService) {}
+
+  // GET /members/nickname/수현 → { "available": false }
+  @Get('nickname/:nickname')
+  checkNickname(@Param('nickname') nickname: string): Promise<CheckResponseDto> {
+    return this.memberService.checkNickname(nickname);
+  }
+
+  @Get('email/:email')
+  checkEmail(@Param('email') email: string): Promise<CheckResponseDto> {
+    return this.memberService.checkEmail(email);
+  }
+}
+````
+
+## src/controller/rating.controller.ts
+
+경로: D:/be/study/movie/src/controller/rating.controller.ts
+
+설명: 회원 번호를 정수로 바꾸어 평점 서비스를 호출합니다.
+
+````typescript
+import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
+import { RatingService } from '../service/rating.service.js';
+
+//controller의 기본 경로 지정
+@Controller('members')
+export class RatingController {
+  //생성자를 통해서 service 연결. Nest가 Service 객체를 만들어서 넣어준다.
+
+  constructor(private readonly ratingService: RatingService) {}
+  @Get(':memberId/ratings')
+  //URL에 있는 값을 memberId에 넣기 위한 코드.
+  //memberId를 ParseIntPipe를 사용해서 number로 바꾸어서 넣어준다.
+  getMemberRatings(@Param('memberId', ParseIntPipe) memberId: number) {
+    //그리고 그걸 다시 service 코드를 호출해서 넣어줌.
+    return this.ratingService.getRatingsByMember(memberId);
+  }
+}
+````
+
+## src/service/member.service.ts
+
+경로: D:/be/study/movie/src/service/member.service.ts
+
+설명: exists()로 DB에 값이 있는지 확인하고 available로 바꿉니다.
+
+````typescript
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Member } from '../entity/member.entity.js';
+import type { CheckResponseDto } from '../dto/check-response.dto.js';
+
+@Injectable()
+export class MemberService {
+  constructor(
+    @InjectRepository(Member)
+    private readonly memberRepository: Repository<Member>,
+  ) {}
+
+  async checkNickname(nickname: string): Promise<CheckResponseDto> {
+    const exists = await this.memberRepository.exists({ where: { nickname } });
+    // 이미 존재하면 사용 불가(false), 존재하지 않으면 사용 가능(true)입니다.
+    return { available: !exists };
+  }
+
+  async checkEmail(email: string): Promise<CheckResponseDto> {
+    const exists = await this.memberRepository.exists({ where: { email } });
+    return { available: !exists };
+  }
+}
+````
+
+## src/service/rating.service.ts
+
+경로: D:/be/study/movie/src/service/rating.service.ts
+
+설명: 회원 존재 확인 후 해당 회원의 평점을 최신순으로 반환합니다.
+
+````typescript
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Rating } from '../entity/rating.entity.js';
+import { Member } from '../entity/member.entity.js';
+import { RatingResponseDto } from '../dto/rating-response.dto.js';
+
+@Injectable()
+export class RatingService {
+  constructor(
+    @InjectRepository(Rating)
+    private readonly ratingRepository: Repository<Rating>,
+    //회원이 있는지 검사해야하기 ㅇ때문에 연결해줌
+    @InjectRepository(Member)
+    private readonly memberRepositoty: Repository<Member>,
+  ) {}
+  async getRatingsByMember(memberId: number): Promise<RatingResponseDto[]> {
+    const exists = await this.memberRepositoty.exists({ where: { memberId } });
+    if (!exists) {
+      throw new NotFoundException('존재하지 않는 유저입니다.');
+    }
+
+    const ratings = await this.ratingRepository.find({
+      where: { member: { memberId } },
+      order: { ratingId: 'DESC' },
+    });
+
+    return ratings.map(RatingResponseDto.from);
+  }
+}
+````
+
+## src/repository/README.md
+
+경로: D:/be/study/movie/src/repository/README.md
+
+설명: 별도 저장소 클래스 대신 TypeORM Repository를 사용하는 이유입니다.
+
+````markdown
+# Repository 사용 방식
+
+별도 Repository 클래스 대신 TypeORM의 기본 `Repository<T>`를 사용합니다.
+
+`AppModule`에서 `TypeOrmModule.forFeature([Member, Rating])`로 등록하고,
+서비스 생성자에서 `@InjectRepository(Member)` 또는 `@InjectRepository(Rating)`으로 주입받습니다.
+
+`MemberService`는 `exists()`로 중복 여부를 확인하고, `RatingService`는 회원 존재 여부를 확인한 뒤 `find()`로 해당 회원의 평점을 최신순으로 조회합니다.
+````
+
+## sql/schema.sql
+
+경로: D:/be/study/movie/sql/schema.sql
+
+설명: 회원, 평점, 즐겨찾기 테이블과 관계/중복 제약을 만듭니다.
+
+````sql
+-- 데이터베이스 선택은 scripts/init-db.mjs에서 처리합니다.
+-- IF NOT EXISTS로 이미 있는 테이블과 데이터를 보존합니다.
+CREATE TABLE IF NOT EXISTS member (
+    member_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(254) NOT NULL UNIQUE,
+    password VARCHAR(60) NOT NULL,
+    nickname VARCHAR(50) NOT NULL UNIQUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS rating (
+    rating_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    member_id BIGINT NOT NULL,
+    movie_id BIGINT NOT NULL,
+    score TINYINT NOT NULL,
+    comment TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (member_id) REFERENCES member(member_id),
+    UNIQUE KEY uk_rating_member_movie (member_id, movie_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 8주차 준비용 테이블만 생성합니다. 이번 주에는 엔티티와 API를 만들지 않습니다.
+CREATE TABLE IF NOT EXISTS favorite (
+    favorite_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    member_id BIGINT NOT NULL,
+    movie_id BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (member_id) REFERENCES member(member_id),
+    UNIQUE KEY uk_favorite_member_movie (member_id, movie_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+````
+
+## sql/seed.sql
+
+경로: D:/be/study/movie/sql/seed.sql
+
+설명: 워크북의 회원 2명과 평점 3건을 중복 없이 추가합니다.
+
+````sql
+-- 아래 문자열은 로그인에 사용할 수 없는 학습용 더미이며 실제 비밀번호가 아닙니다.
+-- 재실행해도 기존 회원 정보와 평점을 덮어쓰지 않습니다.
+INSERT INTO member (email, password, nickname) VALUES
+('noco@umc.com', '$2a$10$dummyEncodedPasswordValue', '수현'),
+('minseo@umc.com', '$2a$10$dummyEncodedPasswordValue', '민서')
+ON DUPLICATE KEY UPDATE member_id = member_id;
+
+-- ID가 반드시 1, 2라고 가정하지 않고 이메일로 회원을 찾아 연결합니다.
+INSERT INTO rating (member_id, movie_id, score, comment)
+SELECT member_id, 550, 5, '최고의 영화!' FROM member WHERE email = 'noco@umc.com'
+ON DUPLICATE KEY UPDATE rating_id = rating_id;
+
+INSERT INTO rating (member_id, movie_id, score, comment)
+SELECT member_id, 155, 4, '다시 봐도 명작' FROM member WHERE email = 'noco@umc.com'
+ON DUPLICATE KEY UPDATE rating_id = rating_id;
+
+INSERT INTO rating (member_id, movie_id, score, comment)
+SELECT member_id, 550, 3, '호불호가 갈릴 것 같아요' FROM member WHERE email = 'minseo@umc.com'
+ON DUPLICATE KEY UPDATE rating_id = rating_id;
+````
+
+## scripts/init-db.mjs
+
+경로: D:/be/study/movie/scripts/init-db.mjs
+
+설명: .env로 연결해 DB/테이블/시드를 준비하고 실제 회원 번호를 출력합니다.
+
+````javascript
+import { readFile } from 'node:fs/promises';
+import mysql from 'mysql2/promise';
+
+// package.json의 --env-file=.env 옵션이 먼저 환경변수를 읽어 줍니다.
+const required = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+for (const key of required) {
+  if (process.env[key] === undefined) throw new Error(`.env에 ${key}를 입력하세요.`);
+}
+
+let connection;
+try {
+  connection = await mysql.createConnection({
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT ?? 3306),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    charset: 'utf8mb4',
+    timezone: 'Z',
+    // 직접 작성한 SQL 파일 실행에만 다중 문장을 허용합니다.
+    multipleStatements: true,
+  });
+  const database = mysql.escapeId(process.env.DB_NAME);
+  await connection.query(`CREATE DATABASE IF NOT EXISTS ${database} CHARACTER SET utf8mb4`);
+  await connection.query(`USE ${database}`);
+  await connection.query("SET time_zone = '+00:00'");
+  await connection.query(await readFile(new URL('../sql/schema.sql', import.meta.url), 'utf8'));
+  await connection.beginTransaction();
+  await connection.query(await readFile(new URL('../sql/seed.sql', import.meta.url), 'utf8'));
+  await connection.commit();
+  const [members] = await connection.query('SELECT member_id, nickname FROM member ORDER BY member_id');
+  console.log('테이블 및 시드 준비 완료. 평점 조회에 사용할 회원 번호:');
+  console.table(members);
+} catch (error) {
+  if (connection) await connection.rollback();
+  console.error('DB 초기화 실패:', error.code ?? error.message);
+  process.exitCode = 1;
+} finally {
+  if (connection) await connection.end();
+}
+````
+
+## mock-frontend/index.html
+
+경로: D:/be/study/movie/mock-frontend/index.html
+
+설명: 꾸밈없는 HTML에 버튼 세 개와 fetch 함수를 넣어 필수 API의 실제 응답을 표시합니다.
+
+````html
+<!-- mock-frontend/index.html -->
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UMC 5주차 간이 프론트</title>
+  </head>
+  <body>
+    <h1>간이 프론트 : 영화 평점 서비스</h1>
+
+    <h2>1. 닉네임 중복 체크</h2>
+    <label for="nickname">닉네임</label>
+    <input id="nickname" value="수현" />
+    <button onclick="checkNickname()">닉네임 중복 체크</button>
+    <p id="nickname-request"></p>
+    <pre id="nickname-result" aria-live="polite"></pre>
+
+    <h2>2. 이메일 중복 체크</h2>
+    <label for="email">이메일</label>
+    <input id="email" value="noco@umc.com" />
+    <button onclick="checkEmail()">이메일 중복 체크</button>
+    <p id="email-request"></p>
+    <pre id="email-result" aria-live="polite"></pre>
+
+    <h2>3. 유저별 평점 조회</h2>
+    <label for="member-id">회원 번호</label>
+    <input id="member-id" value="1" />
+    <button onclick="getRatings()">평점 조회</button>
+    <p id="ratings-request"></p>
+    <pre id="ratings-result" aria-live="polite"></pre>
+
+    <script>
+      // NestJS 서버 주소입니다. PORT를 바꾸면 이 주소도 바꾸세요.
+      const API_BASE = 'http://localhost:3000';
+
+      // 세 버튼이 공유하는 함수입니다. 실제 서버의 JSON을 그대로 표시합니다.
+      async function callApi(path, key) {
+        const url = API_BASE + path;
+        const request = document.getElementById(key + '-request');
+        const result = document.getElementById(key + '-result');
+        request.innerText = 'GET ' + url;
+        result.innerText = '조회 중...';
+        try {
+          const res = await fetch(url);
+          const data = await res.json();
+          request.innerText += ' → HTTP ' + res.status;
+          // 200뿐 아니라 404 등 서버의 오류 응답도 그대로 보여 줍니다.
+          result.innerText = JSON.stringify(data, null, 2);
+        } catch (error) {
+          result.innerText = '요청 실패: 백엔드 실행 상태와 CORS 설정을 확인하세요.';
+          console.error(error);
+        }
+      }
+
+      function checkNickname() {
+        // 한글 등 특수 문자가 URL에 들어갈 수 있도록 인코딩합니다.
+        const nickname = encodeURIComponent(document.getElementById('nickname').value);
+        return callApi('/members/nickname/' + nickname, 'nickname');
+      }
+
+      function checkEmail() {
+        const email = encodeURIComponent(document.getElementById('email').value);
+        return callApi('/members/email/' + email, 'email');
+      }
+
+      function getRatings() {
+        const memberId = encodeURIComponent(document.getElementById('member-id').value);
+        return callApi('/members/' + memberId + '/ratings', 'ratings');
+      }
+    </script>
+  </body>
+</html>
+````
+
+## mock-frontend/server.mjs
+
+경로: D:/be/study/movie/mock-frontend/server.mjs
+
+설명: Node 내장 HTTP 기능으로 간이 화면을 5173 포트에서 제공합니다.
+
+````javascript
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+
+// 외부 패키지 없이 index.html만 제공하는 로컬 정적 서버입니다.
+const files = {
+  '/': ['index.html', 'text/html; charset=utf-8'],
+};
+
+const server = createServer(async (request, response) => {
+  const path = new URL(request.url, 'http://localhost:5173').pathname;
+  const file = files[path];
+  if (!file || !['GET', 'HEAD'].includes(request.method)) {
+    response.writeHead(404).end('Not found');
+    return;
+  }
+  try {
+    const body = await readFile(new URL(file[0], import.meta.url));
+    response.writeHead(200, { 'Content-Type': file[1], 'Cache-Control': 'no-store' });
+    response.end(request.method === 'HEAD' ? undefined : body);
+  } catch {
+    response.writeHead(500).end('Cannot read frontend file');
+  }
+});
+
+server.listen(5173, 'localhost', () => console.log('간이 프론트: http://localhost:5173'));
+````
+
+## test/api.test.mjs
+
+경로: D:/be/study/movie/test/api.test.mjs
+
+설명: DB 대역을 사용해 HTTP 응답 계약과 CORS, 오류 상태를 검증합니다.
+
+````javascript
+import 'reflect-metadata';
+import assert from 'node:assert/strict';
+import { after, before, test } from 'node:test';
+import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Member } from '../dist/entity/member.entity.js';
+import { Rating } from '../dist/entity/rating.entity.js';
+import { MemberService } from '../dist/service/member.service.js';
+import { RatingService } from '../dist/service/rating.service.js';
+import { MemberController } from '../dist/controller/member.controller.js';
+import { RatingController } from '../dist/controller/rating.controller.js';
+import { configureCors } from '../dist/cors.js';
+
+// 실제 MySQL 없이 HTTP 라우팅, 응답 계약, 오류 처리, CORS를 검증합니다.
+const members = [{ memberId: 1, nickname: '수현', email: 'noco@umc.com' }, { memberId: 2, nickname: '민서', email: 'minseo@umc.com' }];
+const ratings = [{ ratingId: 2, movieId: 155, score: 4, comment: null, createdAt: new Date('2026-01-02T00:00:00Z'), updatedAt: new Date('2026-01-02T00:00:00Z'), internal: '응답에서 제외' }];
+const memberRepository = {
+  exists: async ({ where }) => members.some((member) => Object.entries(where).every(([key, value]) => member[key] === value)),
+};
+const ratingRepository = { find: async ({ where }) => where.member.memberId === 1 ? ratings : [] };
+const apps = [];
+let baseUrl;
+
+async function createApp(cors) {
+  const module = await Test.createTestingModule({
+    controllers: [MemberController, RatingController],
+    providers: [MemberService, RatingService,
+      { provide: getRepositoryToken(Member), useValue: memberRepository },
+      { provide: getRepositoryToken(Rating), useValue: ratingRepository },
+    ],
+  }).compile();
+  const app = module.createNestApplication({ logger: false });
+  configureCors(app, cors);
+  await app.listen(0, '127.0.0.1');
+  apps.push(app);
+  return app.getUrl();
+}
+
+before(async () => { baseUrl = await createApp(true); });
+after(async () => { await Promise.all(apps.map((app) => app.close())); });
+
+test('닉네임: 기존 값 false, 새 값 true, 한글 경로 인코딩', async () => {
+  for (const [nickname, available] of [['수현', false], ['새로운회원', true]]) {
+    const response = await fetch(`${baseUrl}/members/nickname/${encodeURIComponent(nickname)}`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { available });
+  }
+});
+
+test('이메일: 기존 값 false, 새 값 true', async () => {
+  for (const [email, available] of [['noco@umc.com', false], ['new@example.com', true]]) {
+    const response = await fetch(`${baseUrl}/members/email/${encodeURIComponent(email)}`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { available });
+  }
+});
+
+test('평점 응답은 명세의 6개 필드만 노출하고 null과 날짜를 보존한다', async () => {
+  const response = await fetch(`${baseUrl}/members/1/ratings`);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), [{ ratingId: 2, movieId: 155, score: 4, comment: null, createdAt: '2026-01-02T00:00:00.000Z', updatedAt: '2026-01-02T00:00:00.000Z' }]);
+});
+
+test('평점 없는 회원은 200과 빈 배열', async () => {
+  const response = await fetch(`${baseUrl}/members/2/ratings`);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), []);
+});
+
+test('없는 회원은 404, 숫자가 아닌 회원 번호는 400', async () => {
+  const missing = await fetch(`${baseUrl}/members/999/ratings`);
+  assert.equal(missing.status, 404);
+  assert.equal((await missing.json()).message, '존재하지 않는 유저입니다.');
+  assert.equal((await fetch(`${baseUrl}/members/abc/ratings`)).status, 400);
+});
+
+test('허용 출처에 CORS 응답 헤더와 preflight 응답을 제공한다', async () => {
+  const response = await fetch(`${baseUrl}/members/1/ratings`, { headers: { Origin: 'http://localhost:5173' } });
+  assert.equal(response.headers.get('access-control-allow-origin'), 'http://localhost:5173');
+  const preflight = await fetch(`${baseUrl}/members/1/ratings`, { method: 'OPTIONS', headers: { Origin: 'http://localhost:5173', 'Access-Control-Request-Method': 'GET' } });
+  assert.equal(preflight.status, 204);
+  assert.match(preflight.headers.get('access-control-allow-methods'), /GET/);
+});
+
+test('다른 출처를 허용하지 않고 CORS 끄기 모드에서는 허용 헤더가 없다', async () => {
+  const response = await fetch(`${baseUrl}/members/1/ratings`, { headers: { Origin: 'http://example.com' } });
+  assert.notEqual(response.headers.get('access-control-allow-origin'), 'http://example.com');
+  const noCorsUrl = await createApp(false);
+  const noCors = await fetch(`${noCorsUrl}/members/1/ratings`, { headers: { Origin: 'http://localhost:5173' } });
+  assert.equal(noCors.headers.get('access-control-allow-origin'), null);
+});
+````
+
+## test/mysql.test.mjs
+
+경로: D:/be/study/movie/test/mysql.test.mjs
+
+설명: 실제 MySQL에서 회원 필터링과 정렬, DTO와 404를 검증합니다.
+
+````javascript
+import 'reflect-metadata';
+import assert from 'node:assert/strict';
+import { after, before, test } from 'node:test';
+import { NestFactory } from '@nestjs/core';
+import { DataSource } from 'typeorm';
+import { AppModule } from '../dist/app.module.js';
+import { configureCors } from '../dist/cors.js';
+import { Member } from '../dist/entity/member.entity.js';
+
+// npm run db:init 후 실제 MySQL과 연결해 읽기만 수행하는 통합 테스트입니다.
+let app;
+let baseUrl;
+let source;
+before(async () => {
+  app = await NestFactory.create(AppModule, { logger: false, abortOnError: false });
+  configureCors(app);
+  await app.listen(0, '127.0.0.1');
+  baseUrl = await app.getUrl();
+  source = app.get(DataSource);
+});
+after(async () => { if (app) await app.close(); });
+
+test('실제 DB의 시드 회원에 대한 닉네임·이메일 중복 확인', async () => {
+  for (const path of [`nickname/${encodeURIComponent('수현')}`, 'email/noco%40umc.com']) {
+    const response = await fetch(`${baseUrl}/members/${path}`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { available: false });
+  }
+});
+
+test('실제 DB에서 회원별 필터링·최신순 정렬·응답 필드를 확인한다', async () => {
+  const member = await source.getRepository(Member).findOneByOrFail({ email: 'noco@umc.com' });
+  const response = await fetch(`${baseUrl}/members/${member.memberId}/ratings`);
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  const rows = await source.query('SELECT rating_id, movie_id, score, comment FROM rating WHERE member_id = ? ORDER BY rating_id DESC', [member.memberId]);
+  assert.ok(rows.length >= 2, 'db:init으로 시드를 준비하세요.');
+  assert.deepEqual(data.map(({ ratingId, movieId, score, comment }) => ({ ratingId, movieId, score, comment })), rows.map((row) => ({ ratingId: Number(row.rating_id), movieId: Number(row.movie_id), score: row.score, comment: row.comment })));
+  assert.deepEqual(Object.keys(data[0]).sort(), ['ratingId', 'movieId', 'score', 'comment', 'createdAt', 'updatedAt'].sort());
+  assert.equal(typeof data[0].ratingId, 'number');
+  assert.ok(Number.isFinite(Date.parse(data[0].createdAt)));
+  assert.equal(response.headers.get('access-control-allow-origin'), 'http://localhost:5173');
+});
+
+test('실제 DB에 없는 회원은 404를 반환한다', async () => {
+  const [{ nextId }] = await source.query('SELECT COALESCE(MAX(member_id), 0) + 1 AS nextId FROM member');
+  assert.equal((await fetch(`${baseUrl}/members/${nextId}/ratings`)).status, 404);
+});
+````
+
+## postman/umc-week5.postman_collection.json
+
+경로: D:/be/study/movie/postman/umc-week5.postman_collection.json
+
+설명: Postman에 가져와 필수 요청과 404 확인을 실행합니다.
+
+````json
+{
+  "info": {
+    "name": "UMC 5주차 - 영화 평점 필수 API",
+    "description": "백엔드를 실행한 뒤 Send를 누르세요. 새 DB의 수현 회원 번호는 1입니다.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "memberId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "1. 닉네임 중복 확인 - 수현",
+      "request": { "method": "GET", "url": "{{baseUrl}}/members/nickname/%EC%88%98%ED%98%84", "description": "시드 데이터가 있으면 available: false" }
+    },
+    {
+      "name": "2. 이메일 중복 확인 - noco@umc.com",
+      "request": { "method": "GET", "url": "{{baseUrl}}/members/email/noco%40umc.com", "description": "시드 데이터가 있으면 available: false" }
+    },
+    {
+      "name": "3. 회원별 평점 조회",
+      "request": { "method": "GET", "url": "{{baseUrl}}/members/{{memberId}}/ratings", "description": "새 DB의 수현 회원은 영화 155, 550 순으로 응답합니다." }
+    },
+    {
+      "name": "4. 없는 회원 - 404 확인",
+      "request": { "method": "GET", "url": "{{baseUrl}}/members/999/ratings", "description": "999번 회원이 없는 실습 DB에서 HTTP 404" }
+    }
+  ]
+}
+````
+
+## README.md
+
+경로: D:/be/study/movie/README.md
+
+설명: 폴더 구조, 실행 명령, 코드 흐름, 인증 방법과 오류 해결 가이드입니다.
+
+````markdown
+# UMC 5주차 · 영화 평점 서비스
+
+NestJS + TypeORM + MySQL로 워크북의 필수 API 3개와 실제 웹 화면을 구현했습니다.
+프로젝트 위치: `D:\be\study\movie`
+
+## 1. 이번 주에 구현한 것
+
+| 기능 | 요청 | 성공 응답 |
+| --- | --- | --- |
+| 닉네임 중복 확인 | `GET /members/nickname/:nickname` | `{ "available": true 또는 false }` |
+| 이메일 중복 확인 | `GET /members/email/:email` | `{ "available": true 또는 false }` |
+| 회원별 평점 조회 | `GET /members/:memberId/ratings` | 평점 배열, ratingId 내림차순 |
+
+평점이 없는 회원은 `200`과 `[]`, 없는 회원은 `404`를 반환합니다.
+회원 번호에 숫자가 아닌 값을 넣으면 워크북의 `ParseIntPipe`가 `400`을 반환합니다.
+`favorite`은 테이블만 생성합니다. 회원가입, 로그인, 평점 작성/수정/삭제, 즐겨찾기 API는 이후 주차 범위입니다.
+선택 미션인 닉네임/이메일 형식 검증, 페이지네이션, CORS 와일드카드 비교 기능은 구현하지 않았습니다.
+
+## 2. 폴더 구조
+
+```text
+movie/
+├─ .env.example              # 접속 정보 작성 예시
+├─ .env                      # 본인 PC의 실제 접속 정보, Git/보고서에서 제외
+├─ package.json              # 패키지와 실행 명령
+├─ package-lock.json         # 설치 버전 고정, npm이 생성
+├─ nest-cli.json
+├─ tsconfig.json
+├─ tsconfig.build.json
+├─ src/
+│  ├─ main.ts                # 서버 시작
+│  ├─ cors.ts                # 프론트 출처 허용
+│  ├─ app.module.ts          # DB/컨트롤러/서비스 등록
+│  ├─ controller/            # URL을 받아 서비스 호출
+│  │  ├─ member.controller.ts
+│  │  └─ rating.controller.ts
+│  ├─ service/               # 존재 여부 확인 및 조회 처리
+│  │  ├─ member.service.ts
+│  │  └─ rating.service.ts
+│  ├─ entity/                # MySQL 테이블과 연결되는 클래스
+│  │  ├─ base-time.entity.ts
+│  │  ├─ member.entity.ts
+│  │  └─ rating.entity.ts
+│  ├─ dto/                   # 응답 JSON 형태
+│  │  ├─ check-response.dto.ts
+│  │  └─ rating-response.dto.ts
+│  └─ repository/README.md   # TypeORM 기본 Repository를 쓰는 이유
+├─ sql/
+│  ├─ schema.sql             # 세 테이블 생성
+│  └─ seed.sql               # 회원 2명, 평점 3건
+├─ scripts/
+│  ├─ init-db.mjs            # DB 생성 + SQL 실행
+│  └─ report.mjs             # 모든 작성 코드와 설명을 텍스트로 묶기
+├─ mock-frontend/
+│  ├─ index.html             # 버튼 세 개와 fetch 함수가 있는 간이 화면
+│  └─ server.mjs             # 5173 포트 정적 서버
+├─ test/
+│  ├─ api.test.mjs           # DB 없이 HTTP 동작 검증
+│  └─ mysql.test.mjs         # 실제 MySQL 통합 검증
+├─ postman/umc-week5.postman_collection.json
+└─ docs/
+   ├─ 전체코드.md             # 파일별 설명과 전체 소스
+   └─ 전체코드.txt            # 같은 내용을 일반 텍스트로 제공
+```
+
+## 3. 처음 실행하기 — Windows PowerShell
+
+Node.js, npm, MySQL 서버가 설치되어 있어야 합니다.
+현재 고정한 Nest CLI 의존성의 지원 범위는 Node.js 22.22.3 이상(22.x), 24.15.0 이상(24.x), 또는 26 이상입니다.
+설치된 Node 22.20.0에서는 엔진 경고가 발생할 수 있으며, 실제 검증 결과는 `docs/검증결과.md`에 기록합니다.
+
+**터미널 1에서 실행합니다.** 모든 npm 명령은 `movie` 폴더에서 실행하세요.
+
+```powershell
+cd D:\be\study\movie
+npm.cmd ci
+
+# .env가 아직 없는 경우에만 복사합니다. 이미 설정한 파일은 덮어쓰지 않습니다.
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+notepad .env
+```
+
+메모장에서 MySQL 접속 정보를 입력한 뒤 저장합니다.
+`DB_PASSWORD`는 Windows 암호가 아니라 MySQL 계정의 암호입니다.
+비밀번호에 `#` 등의 문자가 들어 있어도 읽을 수 있도록 큰따옴표로 감싸세요.
+
+```dotenv
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=본인_MySQL_계정
+DB_PASSWORD="본인_MySQL_비밀번호"
+DB_NAME=umc_movie
+PORT=3000
+```
+
+DB 계정에는 `umc_movie` 생성/테이블 생성/조회/시드 입력에 필요한 권한이 있어야 합니다.
+그다음 같은 터미널에서 실행합니다.
+
+```powershell
+npm.cmd run db:init
+npm.cmd run build
+npm.cmd start
+```
+
+`db:init`은 DB와 세 테이블을 준비하고 시드를 넣습니다.
+이미 같은 시드가 있으면 덮어쓰지 않습니다. 기존 테이블 구조를 변경하는 마이그레이션 기능은 아닙니다.
+터미널에 표시된 회원 번호를 기억하세요. 빈 DB에서 처음 시작하면 수현은 1, 민서는 2입니다.
+
+**터미널 2를 새로 열어 실행합니다.**
+
+```powershell
+cd D:\be\study\movie
+npm.cmd run frontend
+```
+
+브라우저에서 **http://localhost:5173**을 엽니다.
+`index.html`을 더블클릭해 열면 출처가 달라지므로 반드시 위 주소로 접속하세요.
+닉네임 중복 확인, 이메일 중복 확인, 평점 조회 버튼을 각각 누릅니다.
+
+서버를 종료하려면 각 터미널에서 `Ctrl+C`를 누릅니다.
+개발 중 소스 변경을 자동 반영하려면 `npm.cmd start` 대신 `npm.cmd run start:dev`를 사용하세요.
+
+## 4. 파일이 서로 연결되는 원리
+
+```text
+브라우저 mock-frontend/index.html의 script
+ → HTTP GET 요청
+ → Controller: URL의 값을 받음
+ → Service: 회원 존재 여부 확인, 조회 조건 설정
+ → TypeORM Repository: MySQL에 SQL 실행
+ → DTO: 필요한 필드만 선택
+ → JSON 응답
+ → 화면에 JSON 응답 그대로 표시
+```
+
+- `MemberController`는 닉네임과 이메일 경로를 담당합니다.
+- `MemberService`는 DB에 값이 있는지 `exists()`로 확인하고 결과를 반대로 뒤집습니다. 존재하면 `available: false`입니다.
+- `RatingService`는 회원부터 확인합니다. 회원이 없으면 404, 있으면 그 회원의 평점만 최신순으로 조회합니다.
+- `RatingResponseDto.from()`은 평점의 6개 필드만 골라 반환합니다. 회원 비밀번호나 내부 관계 객체는 응답하지 않습니다.
+- `Member`와 `Rating`은 공통 날짜 클래스를 상속합니다. 날짜는 JSON으로 변환할 때 ISO 8601 문자열이 됩니다.
+- `movieId`는 TMDB의 식별 번호를 담는 일반 컬럼입니다. 이번 화면에서는 JSON의 영화 번호를 그대로 표시하며 TMDB 호출/API Key는 필요 없습니다.
+- DB의 날짜는 초기화 시 UTC로 기록하고, 응답은 `Z`가 붙는 UTC 시간입니다. 간이 화면은 JSON 응답을 그대로 표시합니다.
+- SQL의 BIGINT ID를 API 명세에 맞춰 number로 반환합니다. 이 학습용 구현은 JavaScript 안전 정수 범위 안의 ID를 전제로 합니다.
+- `repository` 폴더에 별도 클래스가 없는 이유는 NestJS에서 TypeORM의 기본 `Repository<T>`를 주입받기 때문입니다.
+- `.ts` 코드의 내부 import 경로 끝에 `.js`가 붙은 것은 이 프로젝트가 ESM 방식이며 컴파일 후 실행 파일이 `.js`가 되기 때문입니다.
+- 클래스 필드의 `!`는 TypeORM이 DB에서 값을 채운다는 것을 TypeScript에 알려주는 문법입니다.
+
+## 5. API 확인 예시
+
+아래 요청은 새 DB에 시드를 넣은 경우의 예시입니다.
+한글 경로는 프론트가 `encodeURIComponent()`로 인코딩합니다. **닉네임을 큰따옴표로 감싸지 마세요.** 따옴표까지 검색 값에 포함됩니다.
+
+```http
+GET http://localhost:3000/members/nickname/수현
+```
+
+```json
+{ "available": false }
+```
+
+```http
+GET http://localhost:3000/members/email/noco@umc.com
+```
+
+```json
+{ "available": false }
+```
+
+```http
+GET http://localhost:3000/members/1/ratings
+```
+
+```json
+[
+  {
+    "ratingId": 2,
+    "movieId": 155,
+    "score": 4,
+    "comment": "다시 봐도 명작",
+    "createdAt": "2026-10-28T00:00:00.000Z",
+    "updatedAt": "2026-10-28T00:00:00.000Z"
+  },
+  {
+    "ratingId": 1,
+    "movieId": 550,
+    "score": 5,
+    "comment": "최고의 영화!",
+    "createdAt": "2026-10-28T00:00:00.000Z",
+    "updatedAt": "2026-10-28T00:00:00.000Z"
+  }
+]
+```
+
+위 날짜는 응답 형태를 보여주는 예시입니다. 실제 값은 시드를 넣은 시각입니다.
+
+## 6. CORS 설정 전/후 실습
+
+1. 실행 중인 백엔드 터미널에서 `Ctrl+C`를 누릅니다.
+2. 아래 명령으로 CORS를 끈 백엔드를 실행합니다.
+
+```powershell
+npm.cmd run build
+npm.cmd run start:no-cors
+```
+
+3. `http://localhost:5173`에서 F12 → Console을 열고 중복 확인 버튼을 누릅니다.
+4. CORS 오류와 화면의 연결 실패 안내를 캡처합니다.
+5. 백엔드를 `Ctrl+C`로 종료하고 `npm.cmd start`로 다시 실행합니다.
+6. 같은 버튼을 누르면 정상 응답합니다. 다른 터미널의 프론트 서버는 계속 실행해 두면 됩니다.
+
+기본 CORS 설정은 `src/cors.ts`에 있으며 `main.ts`에서 적용합니다.
+허용 출처는 정확히 `http://localhost:5173`입니다. `127.0.0.1:5173`은 다른 출처입니다.
+단순 GET은 서버가 처리해도 브라우저가 응답 읽기를 막을 수 있습니다.
+Preflight가 필요한 요청은 사전 OPTIONS 요청이 실패하면 실제 요청이 전송되지 않을 수도 있습니다.
+Postman과 Node의 fetch는 브라우저 CORS 정책을 적용하지 않으므로 브라우저 확인도 별도로 필요합니다.
+
+## 7. 필수 인증 캡처하기
+
+**Postman**
+
+1. Import → `postman/umc-week5.postman_collection.json` 선택.
+2. 닉네임, 이메일, 평점 요청을 각각 선택하고 Send.
+3. 각 요청의 URL, HTTP 상태 코드, JSON 응답이 한 화면에 보이도록 캡처.
+4. 기존 데이터가 있으면 컬렉션 변수 `memberId`를 `db:init`이 출력한 회원 번호로 변경.
+
+**실제 웹 화면**
+
+1. 닉네임 `수현`, 이메일 `noco@umc.com`의 중복 확인 버튼을 각각 클릭.
+2. 회원 번호 `1`의 평점 조회 버튼 클릭(실제 시드 회원 번호가 다르면 수정).
+3. 버튼 아래에 표시된 요청 주소·HTTP 상태 코드·JSON 확인.
+4. 화면 결과와 요청 주소·HTTP 200·JSON을 함께 캡처.
+5. CORS 설정 전/후 캡처도 함께 준비.
+
+핵심 코드 제출에는 `entity`, `dto`, `controller`, `service` 파일을 사용합니다.
+모든 작성 코드를 한 번에 읽으려면 `docs/전체코드.txt`를 사용하세요.
+
+## 8. 테스트 및 보고서
+
+```powershell
+# 실제 DB 없이 라우팅, 응답, 400/404, CORS를 검사합니다.
+npm.cmd test
+
+# .env와 db:init이 준비된 실제 MySQL에서 조회를 검증합니다.
+npm.cmd run test:mysql
+
+# 수정된 소스 전체를 설명과 함께 텍스트로 다시 묶습니다.
+npm.cmd run report
+```
+
+실제 DB 통합 테스트는 데이터를 삭제하거나 수정하지 않습니다.
+`package-lock.json`은 npm이 자동 생성한 의존성 메타데이터이므로 전체 코드 보고서에는 복제하지 않습니다.
+실제 `.env`의 비밀번호 역시 보고서에 넣지 않으며 `.env.example`로 설정 형식을 설명합니다.
+
+## 9. 자주 생기는 문제
+
+| 증상 | 확인할 것 |
+| --- | --- |
+| `ER_ACCESS_DENIED_ERROR` | 실제 `movie/.env`의 사용자·비밀번호, 저장 여부. `.env.example`만 수정하지 않았는지 확인 |
+| `ECONNREFUSED` | MySQL 서버가 실행 중인지, DB_PORT가 맞는지 확인 |
+| 테이블이 없다는 오류 | `npm.cmd run db:init` 실행 |
+| `EADDRINUSE` | 3000 또는 5173을 사용 중인 기존 개발 서버 종료 |
+| 화면에서 연결 실패 | 백엔드 실행 상태, 접속 주소가 `localhost:5173`인지, CORS 모드 확인 |
+| `npm.ps1` 실행 정책 오류 | 가이드처럼 `npm.cmd`로 실행 |
+| `EBADENGINE` 경고 | 위 Node.js 지원 버전 확인 |
+
+서버 포트를 변경한다면 `.env`의 `PORT`, `mock-frontend/index.html`의 `API_BASE`, Postman의 `baseUrl`을 함께 변경하세요.
+````
+
+## docs/검증결과.md
+
+경로: D:/be/study/movie/docs/검증결과.md
+
+설명: 실제로 수행한 검사와 남은 확인 사항을 기록합니다.
+
+````markdown
+# 검증 결과
+
+- TypeScript 빌드: 통과.
+- DB 없이 실행하는 HTTP API 테스트: 7개 통과.
+- 실제 MySQL 통합 검사: 3개 통과. 회원별 필터링, 최신순 정렬, 응답 필드와 404 확인.
+- DB 초기화: member/rating/favorite 테이블 생성, 수현(1번)·민서(2번)와 평점 3건 입력 완료.
+- 브라우저에서 실제 API 연결 검사: 세 버튼 모두 HTTP 200 확인.
+  - 수현 닉네임: `available: false`.
+  - noco@umc.com 이메일: `available: false`.
+  - 1번 회원 평점: ratingId 2 → 1, movieId 155 → 550 순서.
+- CORS 설정 전: 서버 자체는 HTTP 200이나 허용 헤더가 없고, 브라우저 fetch는 실패하는 것을 확인.
+- CORS 설정 후: 같은 브라우저 화면에서 세 API 정상 응답 확인.
+- 화면 캡처: `cors-before.png`, `cors-after.png`, `ratings-result.png`.
+- Postman: 가져오기용 컬렉션 제공. Postman 앱에서 직접 요청/캡처하는 단계는 사용자가 진행할 수 있도록 README에 설명.
+
+자동 HTTP 테스트는 중복 확인, 한글 경로, DTO 필드, null/날짜 처리, 빈 평점,
+없는 회원의 404, 숫자가 아닌 회원 번호의 400, CORS와 사전 OPTIONS 요청을 확인했습니다.
+Node fetch의 검증과 실제 브라우저의 CORS 적용 검증은 구분합니다.
+
+화면은 사용자 요청에 따라 CSS 없이 HTML 입력창·버튼·fetch 함수만 있는 간이 프론트로 구성했습니다.
+
+## 해결한 연결 문제
+
+사용자가 접속 정보를 상위 폴더 `D:/be/study/.env`에 입력했으나,
+실제 앱은 `D:/be/study/movie/.env`를 읽고 있었습니다.
+입력한 계정 설정을 앱의 .env에 반영한 뒤 MySQL 연결과 초기화가 정상 완료되었습니다.
+실제 접속 비밀번호는 이 문서나 전체 코드 보고서에 포함하지 않습니다.
+
+검증 환경은 Node.js 22.20.0입니다. 패키지 설치 시 Nest CLI의 Angular DevKit 의존성에서
+Node 엔진 경고가 있었으며, 이 환경에서 빌드와 위 HTTP 테스트는 통과했습니다.
+````
+
+## scripts/report.mjs
+
+경로: D:/be/study/movie/scripts/report.mjs
+
+설명: 이 보고서를 만드는 스크립트 자체도 전체 코드로 포함합니다.
+
+````javascript
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+
+// 비밀번호가 있는 .env와 설치/빌드 산출물은 목록에 넣지 않습니다.
+const files = [
+  ['package.json', '패키지 버전과 실행 명령어를 정의합니다.'],
+  ['.gitignore', '비밀번호, 설치 결과, 빌드 결과를 Git에서 제외합니다.'],
+  ['.env.example', 'DB 접속 설정의 작성 예시입니다. 실제 비밀번호는 .env에만 저장합니다.'],
+  ['nest-cli.json', 'Nest CLI가 읽을 소스 폴더와 빌드 설정입니다.'],
+  ['tsconfig.json', 'TypeScript와 ESM, 데코레이터 메타데이터를 설정합니다.'],
+  ['tsconfig.build.json', '빌드에서 테스트와 화면 파일을 제외합니다.'],
+  ['src/main.ts', 'Nest 앱 생성 → CORS 적용 → 3000 포트 실행 순서입니다.'],
+  ['src/cors.ts', 'localhost:5173 화면이 응답을 읽도록 허용합니다. 설정 전/후 실습을 위해 끌 수 있습니다.'],
+  ['src/app.module.ts', '.env를 읽고 MySQL, TypeORM 저장소, 컨트롤러와 서비스를 연결합니다.'],
+  ['src/entity/base-time.entity.ts', '생성일과 수정일을 공통 부모 클래스로 정의합니다.'],
+  ['src/entity/member.entity.ts', 'member 테이블을 연결합니다. password는 일반 조회에서 제외합니다.'],
+  ['src/entity/rating.entity.ts', 'rating 테이블, 회원 외래키, 회원·영화 복합 UNIQUE를 정의합니다.'],
+  ['src/dto/check-response.dto.ts', '두 중복 확인 API의 available 응답입니다.'],
+  ['src/dto/rating-response.dto.ts', '평점 엔티티에서 명세에 필요한 6개 필드만 선택합니다.'],
+  ['src/controller/member.controller.ts', '닉네임과 이메일 경로 변수를 받아 서비스에 전달합니다.'],
+  ['src/controller/rating.controller.ts', '회원 번호를 정수로 바꾸어 평점 서비스를 호출합니다.'],
+  ['src/service/member.service.ts', 'exists()로 DB에 값이 있는지 확인하고 available로 바꿉니다.'],
+  ['src/service/rating.service.ts', '회원 존재 확인 후 해당 회원의 평점을 최신순으로 반환합니다.'],
+  ['src/repository/README.md', '별도 저장소 클래스 대신 TypeORM Repository를 사용하는 이유입니다.'],
+  ['sql/schema.sql', '회원, 평점, 즐겨찾기 테이블과 관계/중복 제약을 만듭니다.'],
+  ['sql/seed.sql', '워크북의 회원 2명과 평점 3건을 중복 없이 추가합니다.'],
+  ['scripts/init-db.mjs', '.env로 연결해 DB/테이블/시드를 준비하고 실제 회원 번호를 출력합니다.'],
+  ['mock-frontend/index.html', '꾸밈없는 HTML에 버튼 세 개와 fetch 함수를 넣어 필수 API의 실제 응답을 표시합니다.'],
+  ['mock-frontend/server.mjs', 'Node 내장 HTTP 기능으로 간이 화면을 5173 포트에서 제공합니다.'],
+  ['test/api.test.mjs', 'DB 대역을 사용해 HTTP 응답 계약과 CORS, 오류 상태를 검증합니다.'],
+  ['test/mysql.test.mjs', '실제 MySQL에서 회원 필터링과 정렬, DTO와 404를 검증합니다.'],
+  ['postman/umc-week5.postman_collection.json', 'Postman에 가져와 필수 요청과 404 확인을 실행합니다.'],
+  ['README.md', '폴더 구조, 실행 명령, 코드 흐름, 인증 방법과 오류 해결 가이드입니다.'],
+  ['docs/검증결과.md', '실제로 수행한 검사와 남은 확인 사항을 기록합니다.'],
+  ['scripts/report.mjs', '이 보고서를 만드는 스크립트 자체도 전체 코드로 포함합니다.'],
+];
+
+let report = '# UMC 5주차 — 추가한 전체 코드와 파일별 설명\n\n';
+report += '기준 경로: D:/be/study/movie/\n\n';
+report += '필수 API 3개, MySQL 스키마/시드, CORS, 실제 화면과 검증 코드를 작성했습니다. 선택 미션은 제외했습니다.\n\n';
+report += '아래는 작성한 파일의 전체 내용입니다. 실제 .env는 비밀번호 보호를 위해 제외하고 .env.example로 대체합니다. ';
+report += 'npm이 생성한 package-lock.json, node_modules, dist와 보고서 자체의 중복 사본은 복제하지 않습니다.\n\n';
+for (const [path, description] of files) {
+  const source = await readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+  const extension = path.split('.').pop();
+  const language = ({ ts: 'typescript', mjs: 'javascript', js: 'javascript', json: 'json', html: 'html', css: 'css', sql: 'sql', md: 'markdown' })[extension] ?? 'text';
+  // 원본에 포함된 Markdown 코드 블록과 충돌하지 않도록 더 긴 울타리를 사용합니다.
+  const fence = '`'.repeat(Math.max(4, ...[...source.matchAll(/`+/g)].map((match) => match[0].length + 1)));
+  report += `## ${path}\n\n경로: D:/be/study/movie/${path}\n\n설명: ${description}\n\n${fence}${language}\n${source.trimEnd()}\n${fence}\n\n`;
+}
+await mkdir(new URL('../docs/', import.meta.url), { recursive: true });
+await writeFile(new URL('../docs/전체코드.md', import.meta.url), report.trimEnd() + '\n', 'utf8');
+await writeFile(new URL('../docs/전체코드.txt', import.meta.url), report.trimEnd() + '\n', 'utf8');
+console.log(`${files.length}개 파일의 설명과 전체 코드를 docs/전체코드.md, docs/전체코드.txt에 기록했습니다.`);
+````
