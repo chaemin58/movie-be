@@ -1,10 +1,12 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module.js';
 import { configureCors } from './cors.js';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   // 기본 실행은 CORS를 켭니다. --no-cors는 워크북의 설정 전/후 비교용입니다.
   configureCors(app, !process.argv.includes('--no-cors'));
