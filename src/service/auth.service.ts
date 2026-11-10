@@ -20,6 +20,7 @@ export class AuthService {
     //먼저 가입된 이메일인지 확인한다.
     const member = await this.memberRepository.findOne({
       where: { email: dto.email },
+      select: { memberId: true, email: true, nickname: true, password: true },
     });
 
     if (!member) {
