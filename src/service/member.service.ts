@@ -1,16 +1,19 @@
-import { ConflictException, Injectable } from "@nestjs/common";
+import { ConflictException, HttpStatus, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Not, Repository } from "typeorm";
 import { Member } from "../entity/member.entity.js";
 import type { CheckResponseDto } from "../dto/check-response.dto.js";
 import { CreateMemberDto } from "../dto/create-member.dto.js";
 import * as bcrypt from "bcrypt";
+import { ApiException } from "../exception/api.exception.js";
+import { MemberInfoResponseDto } from "../dto/member-info.dto.js";
+import { MemberUpdateRequestDto } from "../dto/member-update.dto.js";
 
 @Injectable()
 export class MemberService {
   constructor(
     @InjectRepository(Member)
-    private readonly memberRepository: Repository<Member>,
+    private readonly memberRepository: Repository<Member>
   ) {}
 
   async checkNickname(nickname: string): Promise<CheckResponseDto> {
@@ -46,7 +49,7 @@ export class MemberService {
         email: dto.email,
         password: await bcrypt.hash(dto.password, 10),
         nickname: dto.nickname,
-      }),
+      })
     );
 
     return {
@@ -54,5 +57,56 @@ export class MemberService {
       email: savedMember.email,
       nickname: savedMember.nickname,
     };
+  }
+
+  async getMyInfo(memberId: number): Promise<MemberInfoResponseDto> {
+    const member = await this.memberRepository.findOne({
+      where: { memberId },
+    });
+
+    if (!member) {
+      throw new ApiException(
+        HttpStatus.NOT_FOUND,
+        "MEMBER404_1",
+        "해당 회원을 찾을 수 없습니다."
+      );
+    }
+
+    return MemberInfoResponseDto.from(member);
+  }
+
+  async updateMyInfo(
+    memberId: number,
+    dto: MemberUpdateRequestDto
+  ): Promise<MemberInfoResponseDto> {
+    const member = await this.memberRepository.findOne({
+      where: { memberId },
+    });
+
+    if (!member) {
+      throw new ApiException(
+        HttpStatus.NOT_FOUND,
+        "MEMBER404_1",
+        "해당 회원을 찾을 수 없습니다."
+      );
+    }
+
+    //누군가 사용하고 있다면 막는다.
+    const duplicated = await this.memberRepository.findOne({
+      where: { nickname: dto.nickname, memberId: Not(memberId) },
+    });
+
+    if (duplicated) {
+      throw new ApiException(
+        HttpStatus.CONFLICT,
+        "MEMBER409_1",
+        "이미 사용 중인 닉네임입니다."
+      );
+    }
+
+    member.nickname = dto.nickname;
+    await this.memberRepository.save(member);
+
+    return MemberInfoResponseDto.from(member);
   }
 }
