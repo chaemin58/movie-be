@@ -7,6 +7,7 @@ import { MemberController } from "./controller/member.controller.js";
 import { RatingController } from "./controller/rating.controller.js";
 import { MemberService } from "./service/member.service.js";
 import { RatingService } from "./service/rating.service.js";
+import { JwtModule } from "@nestjs/jwt";
 
 @Module({
   imports: [
