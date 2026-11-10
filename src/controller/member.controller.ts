@@ -13,11 +13,9 @@ import {
 import { MemberService } from "../service/member.service.js";
 import type { CheckResponseDto } from "../dto/check-response.dto.js";
 import { CreateMemberDto } from "../dto/create-member.dto.js";
-import { AuthGuard } from "../guard/auth.guard.js";
+import { AuthGuard, AuthRequest } from "../guard/auth.guard.js";
 import type { Request } from "express";
 import { MemberUpdateRequestDto } from "../dto/member-update.dto.js";
-
-type AuthRequest = Request & { memberId?: number };
 
 @Controller("members")
 export class MemberController {
@@ -25,7 +23,6 @@ export class MemberController {
   @Get("me")
   @UseGuards(AuthGuard) // 이 줄이 없으면 토큰 없이도 호출됩니다
   async getMyInfo(@Req() request: AuthRequest) {
-    // Guard가 request["memberId"]에 담아둔 값을 꺼냅니다
     const memberId = request.memberId as number;
 
     const result = await this.memberService.getMyInfo(memberId);

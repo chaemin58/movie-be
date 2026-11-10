@@ -12,7 +12,7 @@ import { ApiException } from "../exception/api.exception.js";
 const BEARER_PREFIX = "Bearer ";
 
 // 토큰 검증 전에는 memberId가 없고, 검증에 성공하면 추가됩니다.
-type AuthRequest = Request & { memberId?: number };
+export type AuthRequest = Request & { memberId?: number };
 
 @Injectable()
 export class AuthGuard implements CanActivate {
