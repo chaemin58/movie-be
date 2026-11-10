@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -14,6 +15,7 @@ import type { CheckResponseDto } from "../dto/check-response.dto.js";
 import { CreateMemberDto } from "../dto/create-member.dto.js";
 import { AuthGuard } from "../guard/auth.guard.js";
 import type { Request } from "express";
+import { MemberUpdateRequestDto } from "../dto/member-update.dto.js";
 
 type AuthRequest = Request & { memberId?: number };
 
@@ -56,6 +58,23 @@ export class MemberController {
       isSuccess: true,
       code: "COMMON201",
       message: "회원가입에 성공했습니다.",
+      result,
+    };
+  }
+
+  @Patch("me")
+  @UseGuards(AuthGuard)
+  async updateMyInfo(
+    @Req() request: AuthRequest,
+    @Body() dto: MemberUpdateRequestDto
+  ) {
+    const memberId = request["memberId"] as number;
+
+    const result = await this.memberService.updateMyInfo(memberId, dto);
+    return {
+      isSuccess: true,
+      code: "COMMON200",
+      message: "회원 정보를 수정했습니다.",
       result,
     };
   }
