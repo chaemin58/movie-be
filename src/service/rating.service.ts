@@ -81,7 +81,7 @@ export class RatingService {
     dto: UpdateRatingDto
   ): Promise<RatingResponseDto> {
     //먼저 코멘트를 조회해준다. -- 수정할 권한이 있는지
-    const rating = await this.findOwnedRating(memberId, ratingId);
+    const rating = await this.findOwnedRating(ratingId, memberId);
 
     //수정을 해준다.
     rating.score = dto.score;
@@ -117,7 +117,7 @@ export class RatingService {
       );
     }
 
-    if (rating.member.memberId! == memberId) {
+    if (rating.member.memberId !== memberId) {
       throw new ApiException(
         HttpStatus.FORBIDDEN,
         "RATING403_1",
