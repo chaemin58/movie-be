@@ -19,12 +19,12 @@ import { AuthGuard, AuthRequest } from "../guard/auth.guard.js";
 import { Auth } from "typeorm/driver/mongodb/typings.js";
 
 //controller의 기본 경로 지정
-@Controller("members")
+@Controller()
 export class RatingController {
   //생성자를 통해서 service 연결. Nest가 Service 객체를 만들어서 넣어준다.
 
   constructor(private readonly ratingService: RatingService) {}
-  @Get(":memberId/ratings")
+  @Get("members/:memberId/ratings")
   @HttpCode(HttpStatus.OK)
   //URL에 있는 값을 memberId에 넣기 위한 코드.
   //memberId를 ParseIntPipe를 사용해서 number로 바꾸어서 넣어준다.
