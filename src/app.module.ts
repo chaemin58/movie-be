@@ -16,6 +16,17 @@ import { FavoriteService } from "./service/favorite.service.js";
 
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    TypeOrmModule.forRoot({
+      type: "mysql",
+      host: process.env.DB_HOST,
+      port: 3306,
+      username: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      autoLoadEntities: true,
+      synchronize: false,
+    }),
     JwtModule.registerAsync({
       global: true, // 전역 등록해두면 어느 서비스에서든 JwtService를 주입받을 수 있습니다
       inject: [ConfigService],
