@@ -1,9 +1,4 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from "@nestjs/common";
+import { HttpStatus, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Rating } from "../entity/rating.entity.js";
@@ -11,6 +6,7 @@ import { Member } from "../entity/member.entity.js";
 import { RatingResponseDto } from "../dto/rating-response.dto.js";
 import { CreateRatingDto } from "../dto/create-rating.dto.js";
 import { UpdateRatingDto } from "../dto/update-rating.dto.js";
+import { ApiException } from "../exception/api.exception.js";
 
 @Injectable()
 export class RatingService {
@@ -24,7 +20,11 @@ export class RatingService {
   async getRatingsByMember(memberId: number): Promise<RatingResponseDto[]> {
     const exists = await this.memberRepositoty.exists({ where: { memberId } });
     if (!exists) {
-      throw new NotFoundException("존재하지 않는 유저입니다.");
+      throw new ApiException(
+        HttpStatus.NOT_FOUND,
+        "MEMBER404_1",
+        "해당 회원을 찾을 수 없습니다."
+      );
     }
 
     const ratings = await this.ratingRepository.find({
@@ -35,11 +35,18 @@ export class RatingService {
     return ratings.map(RatingResponseDto.from);
   }
 
-  async create(memberId: number, dto: CreateRatingDto): Promise<number> {
+  async create(
+    memberId: number,
+    dto: CreateRatingDto
+  ): Promise<RatingResponseDto> {
     const member = await this.memberRepositoty.findOneBy({ memberId });
 
     if (!member) {
-      throw new NotFoundException("존재하지 않는 유저입니다.");
+      throw new ApiException(
+        HttpStatus.NOT_FOUND,
+        "MEMBER404_1",
+        "해당 회원을 찾을 수 없습니다."
+      );
     }
 
     //이 유저가 이 영화에 평점을 남겼는지 확인함. DB에서도 막히지만 알맞은 에러 메세지를 내려주기 위해서 서버에서 검사
@@ -48,7 +55,11 @@ export class RatingService {
     });
 
     if (existing) {
-      throw new ConflictException("이미 이 영화에 평점을 남기셨습니다.");
+      throw new ApiException(
+        HttpStatus.CONFLICT,
+        "MEMBER409_1",
+        "이미 이 영화에 평점을 남기셨습니다."
+      );
     }
 
     const saved = await this.ratingRepository.save(
@@ -60,7 +71,7 @@ export class RatingService {
       })
     );
 
-    return saved.ratingId;
+    return RatingResponseDto.from(saved);
   }
 
   //누가 어떤 코멘트를 어떻게 수정할 건지를 보내야한다.
@@ -68,15 +79,17 @@ export class RatingService {
     memberId: number,
     ratingId: number,
     dto: UpdateRatingDto
-  ): Promise<void> {
+  ): Promise<RatingResponseDto> {
     //먼저 코멘트를 조회해준다. -- 수정할 권한이 있는지
     const rating = await this.findOwnedRating(ratingId, memberId);
 
     //수정을 해준다.
     rating.score = dto.score;
-    rating.comment = dto.comment ?? "";
+    rating.comment = dto.comment ?? null;
 
-    await this.ratingRepository.save(rating);
+    const saved = await this.ratingRepository.save(rating);
+
+    return RatingResponseDto.from(saved);
   }
 
   async delete(memberId: number, ratingId: number): Promise<void> {
@@ -97,11 +110,17 @@ export class RatingService {
     });
 
     if (!rating) {
-      throw new NotFoundException("존재하지 않는 평점입니다.");
+      throw new ApiException(
+        HttpStatus.NOT_FOUND,
+        "RATING404_1",
+        "해당 평점을 찾을 수 없습니다."
+      );
     }
 
-    if (rating.member.memberId! == memberId) {
-      throw new ForbiddenException(
+    if (rating.member.memberId !== memberId) {
+      throw new ApiException(
+        HttpStatus.FORBIDDEN,
+        "RATING403_1",
         "본인이 작성한 평점만 수정하거나 삭제할 수 있습니다."
       );
     }
