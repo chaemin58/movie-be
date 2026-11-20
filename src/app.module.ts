@@ -13,6 +13,8 @@ import { AuthService } from "./service/auth.service.js";
 import { Favorite } from "./entity/favorite.entity.js";
 import { FavoriteController } from "./controller/favorite.controller.js";
 import { FavoriteService } from "./service/favorite.service.js";
+import { MovieRecordController } from "./controller/movie-record.controller.js";
+import { MovieRecordService } from "./service/movie-record.service.js";
 
 @Module({
   imports: [
@@ -64,7 +66,19 @@ import { FavoriteService } from "./service/favorite.service.js";
     // 회원, 평점, 즐겨찾기 Repository를 주입할 수 있습니다.
     TypeOrmModule.forFeature([Member, Rating, Favorite]),
   ],
-  controllers: [MemberController, RatingController, AuthController, FavoriteController],
-  providers: [MemberService, RatingService, AuthService, FavoriteService],
+  controllers: [
+    MemberController,
+    RatingController,
+    AuthController,
+    FavoriteController,
+    MovieRecordController,
+  ],
+  providers: [
+    MemberService,
+    RatingService,
+    AuthService,
+    FavoriteService,
+    MovieRecordService,
+  ],
 })
 export class AppModule {}
