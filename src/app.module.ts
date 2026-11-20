@@ -10,6 +10,9 @@ import { RatingService } from "./service/rating.service.js";
 import { JwtModule } from "@nestjs/jwt";
 import { AuthController } from "./controller/auth.controller.js";
 import { AuthService } from "./service/auth.service.js";
+import { Favorite } from "./entity/favorite.entity.js";
+import { FavoriteController } from "./controller/favorite.controller.js";
+import { FavoriteService } from "./service/favorite.service.js";
 
 @Module({
   imports: [
@@ -47,10 +50,10 @@ import { AuthService } from "./service/auth.service.js";
         retryAttempts: 1,
       }),
     }),
-    // 이 등록으로 Repository<Member>, Repository<Rating>을 주입할 수 있습니다.
-    TypeOrmModule.forFeature([Member, Rating]),
+    // 회원, 평점, 즐겨찾기 Repository를 주입할 수 있습니다.
+    TypeOrmModule.forFeature([Member, Rating, Favorite]),
   ],
-  controllers: [MemberController, RatingController, AuthController],
-  providers: [MemberService, RatingService, AuthService],
+  controllers: [MemberController, RatingController, AuthController, FavoriteController],
+  providers: [MemberService, RatingService, AuthService, FavoriteService],
 })
 export class AppModule {}
