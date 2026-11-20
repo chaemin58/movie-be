@@ -15,8 +15,8 @@ import {
 import { RatingService } from "../service/rating.service.js";
 import { CreateRatingDto } from "../dto/create-rating.dto.js";
 import { UpdateRatingDto } from "../dto/update-rating.dto.js";
-import { AuthGuard, AuthRequest } from "../guard/auth.guard.js";
-import { Auth } from "typeorm/driver/mongodb/typings.js";
+import { AuthGuard } from "../guard/auth.guard.js";
+import type { AuthRequest } from "../guard/auth.guard.js";
 
 //controller의 기본 경로 지정
 @Controller()

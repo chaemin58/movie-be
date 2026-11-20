@@ -13,8 +13,8 @@ import {
 import { MemberService } from "../service/member.service.js";
 import type { CheckResponseDto } from "../dto/check-response.dto.js";
 import { CreateMemberDto } from "../dto/create-member.dto.js";
-import { AuthGuard, AuthRequest } from "../guard/auth.guard.js";
-import type { Request } from "express";
+import { AuthGuard } from "../guard/auth.guard.js";
+import type { AuthRequest } from "../guard/auth.guard.js";
 import { MemberUpdateRequestDto } from "../dto/member-update.dto.js";
 
 @Controller("members")
