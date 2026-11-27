@@ -1,0 +1,120 @@
+
+> umc-week5-movie@1.0.0 test
+> npm run build && node --test test/api.test.mjs test/service.unit.test.mjs test/workbook.e2e.test.mjs
+
+
+> umc-week5-movie@1.0.0 build
+> nest build
+
+TAP version 13
+# Subtest: 닉네임: 기존 값 false, 새 값 true, 한글 경로 인코딩
+ok 1 - 닉네임: 기존 값 false, 새 값 true, 한글 경로 인코딩
+  ---
+  duration_ms: 962.6932
+  type: 'test'
+  ...
+# Subtest: 이메일: 기존 값 false, 새 값 true
+ok 2 - 이메일: 기존 값 false, 새 값 true
+  ---
+  duration_ms: 27.6969
+  type: 'test'
+  ...
+# Subtest: 평점 응답은 명세의 6개 필드만 노출하고 null과 날짜를 보존한다
+ok 3 - 평점 응답은 명세의 6개 필드만 노출하고 null과 날짜를 보존한다
+  ---
+  duration_ms: 18.6233
+  type: 'test'
+  ...
+# Subtest: 평점 없는 회원은 200과 빈 배열
+ok 4 - 평점 없는 회원은 200과 빈 배열
+  ---
+  duration_ms: 13.4564
+  type: 'test'
+  ...
+# Subtest: 없는 회원은 404, 숫자가 아닌 회원 번호는 400
+ok 5 - 없는 회원은 404, 숫자가 아닌 회원 번호는 400
+  ---
+  duration_ms: 20.9046
+  type: 'test'
+  ...
+# Subtest: 허용 출처에 CORS 응답 헤더와 preflight 응답을 제공한다
+ok 6 - 허용 출처에 CORS 응답 헤더와 preflight 응답을 제공한다
+  ---
+  duration_ms: 38.7659
+  type: 'test'
+  ...
+# Subtest: 다른 출처를 허용하지 않고 CORS 끄기 모드에서는 허용 헤더가 없다
+ok 7 - 다른 출처를 허용하지 않고 CORS 끄기 모드에서는 허용 헤더가 없다
+  ---
+  duration_ms: 68.5855
+  type: 'test'
+  ...
+# Subtest: 아직 즐겨찾기하지 않은 영화면 저장하고 영화 ID를 반환한다
+ok 8 - 아직 즐겨찾기하지 않은 영화면 저장하고 영화 ID를 반환한다
+  ---
+  duration_ms: 5.5589
+  type: 'test'
+  ...
+# Subtest: 중복 즐겨찾기는 409와 FAVORITE409_1 예외를 던지고 저장하지 않는다
+ok 9 - 중복 즐겨찾기는 409와 FAVORITE409_1 예외를 던지고 저장하지 않는다
+  ---
+  duration_ms: 1.7466
+  type: 'test'
+  ...
+# Subtest: 같은 영화의 평점을 중복 등록하면 409와 RATING409_1 예외를 던진다
+ok 10 - 같은 영화의 평점을 중복 등록하면 409와 RATING409_1 예외를 던진다
+  ---
+  duration_ms: 0.9897
+  type: 'test'
+  ...
+# Subtest: 남의 평점을 수정하면 403과 RATING403_1 예외를 던지고 저장하지 않는다
+ok 11 - 남의 평점을 수정하면 403과 RATING403_1 예외를 던지고 저장하지 않는다
+  ---
+  duration_ms: 2.1236
+  type: 'test'
+  ...
+# Subtest: 토큰 없이 즐겨찾기를 등록하면 401과 AUTH401_2를 응답한다
+ok 12 - 토큰 없이 즐겨찾기를 등록하면 401과 AUTH401_2를 응답한다
+  ---
+  duration_ms: 1614.3026
+  type: 'test'
+  ...
+# Subtest: 토큰으로 즐겨찾기를 등록하면 201과 영화 ID를 응답하고 DB에 저장한다
+ok 13 - 토큰으로 즐겨찾기를 등록하면 201과 영화 ID를 응답하고 DB에 저장한다
+  ---
+  duration_ms: 117.3476
+  type: 'test'
+  ...
+# Subtest: 중복 즐겨찾기를 등록하면 409와 FAVORITE409_1을 응답한다
+ok 14 - 중복 즐겨찾기를 등록하면 409와 FAVORITE409_1을 응답한다
+  ---
+  duration_ms: 51.8812
+  type: 'test'
+  ...
+# Subtest: 즐겨찾기하지 않은 영화 조회는 200과 isFavorite false를 응답한다
+ok 15 - 즐겨찾기하지 않은 영화 조회는 200과 isFavorite false를 응답한다
+  ---
+  duration_ms: 33.2505
+  type: 'test'
+  ...
+# Subtest: 토큰 없이 평점을 등록하면 401과 AUTH401_2를 응답한다
+ok 16 - 토큰 없이 평점을 등록하면 401과 AUTH401_2를 응답한다
+  ---
+  duration_ms: 23.8617
+  type: 'test'
+  ...
+# Subtest: 토큰으로 평점을 등록하면 201과 COMMON201을 응답하고 DB에 저장한다
+ok 17 - 토큰으로 평점을 등록하면 201과 COMMON201을 응답하고 DB에 저장한다
+  ---
+  duration_ms: 38.4415
+  type: 'test'
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6354.186

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
+import { HttpExceptionFilter } from '../dist/filter/http-exception.filter.js';
 import { Member } from '../dist/entity/member.entity.js';
 import { Rating } from '../dist/entity/rating.entity.js';
 import { MemberService } from '../dist/service/member.service.js';
@@ -23,6 +25,7 @@ let baseUrl;
 
 async function createApp(cors) {
   const module = await Test.createTestingModule({
+    imports: [JwtModule.register({ global: true, secret: 'legacy-test-only-secret' })],
     controllers: [MemberController, RatingController],
     providers: [MemberService, RatingService,
       { provide: getRepositoryToken(Member), useValue: memberRepository },
@@ -30,6 +33,7 @@ async function createApp(cors) {
     ],
   }).compile();
   const app = module.createNestApplication({ logger: false });
+  app.useGlobalFilters(new HttpExceptionFilter());
   configureCors(app, cors);
   await app.listen(0, '127.0.0.1');
   apps.push(app);
@@ -70,7 +74,9 @@ test('평점 없는 회원은 200과 빈 배열', async () => {
 test('없는 회원은 404, 숫자가 아닌 회원 번호는 400', async () => {
   const missing = await fetch(`${baseUrl}/members/999/ratings`);
   assert.equal(missing.status, 404);
-  assert.equal((await missing.json()).message, '존재하지 않는 유저입니다.');
+  const body = await missing.json();
+  assert.equal(body.message, '해당 회원을 찾을 수 없습니다.');
+  assert.equal(body.code, 'MEMBER404_1');
   assert.equal((await fetch(`${baseUrl}/members/abc/ratings`)).status, 400);
 });
 
