@@ -16,10 +16,21 @@ import { CreateMemberDto } from "../dto/create-member.dto.js";
 import { AuthGuard } from "../guard/auth.guard.js";
 import type { AuthRequest } from "../guard/auth.guard.js";
 import { MemberUpdateRequestDto } from "../dto/member-update.dto.js";
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
+@ApiTags('회원')
 @Controller("members")
 export class MemberController {
   constructor(private readonly memberService: MemberService) {}
+
+  @ApiOperation({
+    summary: '내 정보 조회',
+    description: '토큰의 회원 정보를 조회합니다.',
+  })
+
+  @ApiBearerAuth('bearerAuth')
+  @ApiResponse({ status: 401, description: 'AUTH401_2: 토큰 없음 / AUTH401_3: 유효하지 않은 토큰 / AUTH401_4: 만료' })
+  @ApiResponse({ status: 404, description: 'MEMBER404_1: 존재하지 않는 회원' })
   @Get("me")
   @UseGuards(AuthGuard) // 이 줄이 없으면 토큰 없이도 호출됩니다
   async getMyInfo(@Req() request: AuthRequest) {
@@ -47,6 +58,7 @@ export class MemberController {
     return this.memberService.checkEmail(email);
   }
 
+  @ApiOperation({ summary: '회원가입', description: '이메일, 비밀번호, 닉네임으로 가입합니다. 토큰이 필요 없는 공개 API입니다.' })
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async signUp(@Body() dto: CreateMemberDto) {
@@ -59,6 +71,11 @@ export class MemberController {
     };
   }
 
+  @ApiOperation({ summary: '내 정보 수정' })
+  @ApiBearerAuth('bearerAuth')
+  @ApiResponse({ status: 401, description: 'AUTH401_2: 토큰 없음 / AUTH401_3: 유효하지 않은 토큰 / AUTH401_4: 만료' })
+  @ApiResponse({ status: 404, description: 'MEMBER404_1: 존재하지 않는 회원' })
+  @ApiResponse({ status: 409, description: 'MEMBER409_1: 중복 닉네임' })
   @Patch("me")
   @UseGuards(AuthGuard)
   async updateMyInfo(

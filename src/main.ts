@@ -4,9 +4,17 @@ import { ValidationPipe } from "@nestjs/common";
 import { AppModule } from "./app.module.js";
 import { configureCors } from "./cors.js";
 import { HttpExceptionFilter } from "./filter/http-exception.filter.js";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+
+  const config = new DocumentBuilder().setTitle('영화 평점 서비스 API').setDescription('UMC 11기 백엔드 워크북으로 만든 회원/평점/즐겨찾기 API 문서입니다.').setVersion('v1').addBearerAuth({type:'http', scheme:'bearer', bearerFormat:'JWT'}, 'bearerAuth',).build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('swagger-ui', app, document);
+
+  
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

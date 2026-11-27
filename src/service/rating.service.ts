@@ -57,7 +57,7 @@ export class RatingService {
     if (existing) {
       throw new ApiException(
         HttpStatus.CONFLICT,
-        "MEMBER409_1",
+        "RATING409_1",
         "이미 이 영화에 평점을 남기셨습니다."
       );
     }

@@ -14,9 +14,11 @@
     "start:no-cors": "node --env-file-if-exists=.env dist/main.js --no-cors",
     "frontend": "node mock-frontend/server.mjs",
     "db:init": "node --env-file=.env scripts/init-db.mjs",
-    "test": "npm run build && node --test test/api.test.mjs",
+    "test": "npm run build && node --test test/api.test.mjs test/service.unit.test.mjs test/workbook.e2e.test.mjs",
     "test:mysql": "npm run build && node --env-file=.env --test test/mysql.test.mjs",
-    "report": "node scripts/report.mjs"
+    "report": "node scripts/report.mjs",
+    "test:unit": "npm run build && node --test test/service.unit.test.mjs",
+    "test:e2e": "npm run build && node --test test/workbook.e2e.test.mjs"
   },
   "dependencies": {
     "@nestjs/common": "12.1.1",
@@ -24,6 +26,7 @@
     "@nestjs/core": "12.1.1",
     "@nestjs/jwt": "^12.0.4",
     "@nestjs/platform-express": "12.1.1",
+    "@nestjs/swagger": "^12.1.3",
     "@nestjs/typeorm": "12.0.2",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
@@ -40,6 +43,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.6",
     "@types/node": "24.19.0",
+    "sql.js": "^1.17.0",
     "typescript": "6.0.3"
   }
 }
