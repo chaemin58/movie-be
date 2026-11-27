@@ -10,9 +10,25 @@ import { RatingService } from "./service/rating.service.js";
 import { JwtModule } from "@nestjs/jwt";
 import { AuthController } from "./controller/auth.controller.js";
 import { AuthService } from "./service/auth.service.js";
+import { Favorite } from "./entity/favorite.entity.js";
+import { FavoriteController } from "./controller/favorite.controller.js";
+import { FavoriteService } from "./service/favorite.service.js";
+import { MovieRecordController } from "./controller/movie-record.controller.js";
+import { MovieRecordService } from "./service/movie-record.service.js";
 
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    TypeOrmModule.forRoot({
+      type: "mysql",
+      host: process.env.DB_HOST,
+      port: 3306,
+      username: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      autoLoadEntities: true,
+      synchronize: false,
+    }),
     JwtModule.registerAsync({
       global: true, // 전역 등록해두면 어느 서비스에서든 JwtService를 주입받을 수 있습니다
       inject: [ConfigService],
@@ -47,10 +63,22 @@ import { AuthService } from "./service/auth.service.js";
         retryAttempts: 1,
       }),
     }),
-    // 이 등록으로 Repository<Member>, Repository<Rating>을 주입할 수 있습니다.
-    TypeOrmModule.forFeature([Member, Rating]),
+    // 회원, 평점, 즐겨찾기 Repository를 주입할 수 있습니다.
+    TypeOrmModule.forFeature([Member, Rating, Favorite]),
   ],
-  controllers: [MemberController, RatingController, AuthController],
-  providers: [MemberService, RatingService, AuthService],
+  controllers: [
+    MemberController,
+    RatingController,
+    AuthController,
+    FavoriteController,
+    MovieRecordController,
+  ],
+  providers: [
+    MemberService,
+    RatingService,
+    AuthService,
+    FavoriteService,
+    MovieRecordService,
+  ],
 })
 export class AppModule {}
